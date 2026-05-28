@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoneyPot Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+    --red: #f85149; --orange: #d29922; --green: #3fb950;
+    --blue: #58a6ff; --purple: #a371f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+  header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--red); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+  .fw-toggle { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .switch { position: relative; width: 44px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--bg3); border-radius: 24px; cursor: pointer; transition: background .2s; border: 1px solid var(--border); }
+  .slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 2px; background: var(--muted); border-radius: 50%; transition: .2s; }
+  input:checked + .slider { background: #1a3a1a; border-color: var(--green); }
+  input:checked + .slider:before { transform: translateX(20px); background: var(--green); }
+  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .stat-card .val { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .stat-card .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .chart-card h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+  .chart-card canvas { max-height: 200px; }
+  .attacks-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .attacks-section h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 8px 12px; font-size: 11px; color: var(--muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+  .badge-red { background: #3d1515; color: var(--red); }
+  .badge-orange { background: #3d2a00; color: var(--orange); }
+  .badge-green { background: #0d2b14; color: var(--green); }
+  .badge-blue { background: #0d1f3d; color: var(--blue); }
+  .badge-gray { background: var(--bg3); color: var(--muted); }
+  .btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background .15s; }
+  .btn:hover { background: #30363d; }
+  .btn-blue { border-color: var(--blue); color: var(--blue); }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 600px; max-height: 80vh; overflow-y: auto; }
+  .modal h2 { margin-bottom: 16px; font-size: 16px; }
+  .modal-close { float: right; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; }
+  .detail-row { display: flex; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+  .detail-key { color: var(--muted); min-width: 120px; }
+  .detail-val { color: var(--text); word-break: break-all; }
+  pre { background: var(--bg3); padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-top: 8px; color: var(--green); }
+  .ai-box { background: #0d1a2d; border: 1px solid #1a3a5c; border-radius: 6px; padding: 12px; margin-top: 12px; }
+  .ai-box h4 { color: var(--blue); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .fw-status { font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+  .fw-on { background: #0d2b14; color: var(--green); }
+  .fw-off { background: #3d1515; color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><div class="pulse"></div> HoneyPot Dashboard</h1>
+  <div class="fw-toggle">
+    <span id="fw-label" class="fw-status fw-off">🔴 Firewall OFF</span>
+    <label class="switch">
+      <input type="checkbox" id="fw-switch" onchange="toggleFirewall(this.checked)">
+      <span class="slider"></span>
+    </label>
+    <span style="color:var(--muted)">Firewall</span>
+  </div>
+</header>
+
+<main>
+  <div class="stats-row">
+    <div class="stat-card"><div class="val" id="stat-total" style="color:var(--blue)">-</div><div class="lbl">Total Attacks</div></div>
+    <div class="stat-card"><div class="val" id="stat-blocked" style="color:var(--green)">-</div><div class="lbl">Blocked</div></div>
+    <div class="stat-card"><div class="val" id="stat-ips" style="color:var(--orange)">-</div><div class="lbl">Unique IPs</div></div>
+    <div class="stat-card"><div class="val" id="stat-top-type" style="color:var(--red);font-size:16px">-</div><div class="lbl">Top Attack Type</div></div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card"><h3>Attack types</h3><canvas id="chart-types"></canvas></div>
+    <div class="chart-card"><h3>Top countries</h3><canvas id="chart-countries"></canvas></div>
+  </div>
+
+  <div class="attacks-section">
+    <h3>
+      Live attack feed
+      <button class="btn btn-blue" onclick="analyzeBatch()">⚡ AI Analyze Latest</button>
+    </h3>
+    <table>
+      <thead><tr>
+        <th>Time</th><th>IP</th><th>Country</th><th>Path</th>
+        <th>Method</th><th>Attack Type</th><th>Severity</th><th>Firewall</th><th></th>
+      </tr></thead>
+      <tbody id="attack-table"></tbody>
+    </table>
+  </div>
+</main>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <span class="modal-close" onclick="closeModal()">×</span>
+    <h2>Attack Detail</h2>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+const SEV_BADGE = { critical:'badge-red', high:'badge-red', medium:'badge-orange', low:'badge-blue' };
+const TYPE_COLORS = ['#58a6ff','#a371f7','#f85149','#d29922','#3fb950','#79c0ff','#ffa657','#ff7b72','#d2a8ff','#7ee787'];
+let chartTypes, chartCountries;
+
+function sevBadge(s) {
+  return `<span class="badge ${SEV_BADGE[s]||'badge-gray'}">${s||'?'}</span>`;
+}
+function fwBadge(fw, blocked) {
+  if (blocked) return '<span class="badge badge-red">blocked</span>';
+  return fw==='on' ? '<span class="badge badge-green">fw:on</span>' : '<span class="badge badge-gray">fw:off</span>';
+}
+function timeAgo(ts) {
+  const d = new Date(ts), now = new Date();
+  const s = Math.floor((now-d)/1000);
+  if (s<60) return `${s}s ago`;
+  if (s<3600) return `${Math.floor(s/60)}m ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+
+async function loadStats() {
+  const r = await fetch('/internal/stats');
+  const d = await r.json();
+  document.getElementById('stat-total').textContent = d.total;
+  document.getElementById('stat-blocked').textContent = d.blocked;
+  document.getElementById('stat-ips').textContent = d.unique_ips;
+  document.getElementById('stat-top-type').textContent = d.attack_types[0]?.attack_type || 'None yet';
+
+  const labels = d.attack_types.map(x=>x.attack_type);
+  const vals = d.attack_types.map(x=>x.cnt);
+  if (chartTypes) { chartTypes.data.labels=labels; chartTypes.data.datasets[0].data=vals; chartTypes.update(); }
+  else {
+    chartTypes = new Chart(document.getElementById('chart-types'), {
+      type:'doughnut', data:{ labels, datasets:[{ data:vals, backgroundColor:TYPE_COLORS, borderWidth:0 }] },
+      options:{ plugins:{ legend:{ labels:{ color:'#8b949e', font:{size:11} } } } }
+    });
+  }
+
+  const cl = d.top_countries.map(x=>x.country);
+  const cv = d.top_countries.map(x=>x.cnt);
+  if (chartCountries) { chartCountries.data.labels=cl; chartCountries.data.datasets[0].data=cv; chartCountries.update(); }
+  else {
+    chartCountries = new Chart(document.getElementById('chart-countries'), {
+      type:'bar', data:{ labels:cl, datasets:[{ data:cv, backgroundColor:'#1a3a5c', borderColor:'#58a6ff', borderWidth:1 }] },
+      options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}}, y:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}} } }
+    });
+  }
+}
+
+async function loadAttacks() {
+  const r = await fetch('/internal/attacks?limit=50');
+  const attacks = await r.json();
+  const tbody = document.getElementById('attack-table');
+  tbody.innerHTML = attacks.map(a => `
+    <tr>
+      <td title="${a.timestamp}">${timeAgo(a.timestamp)}</td>
+      <td><code>${a.ip}</code></td>
+      <td>${a.country||'?'}</td>
+      <td title="${a.path}"><code>${a.path.substring(0,30)}</code></td>
+      <td><span class="badge badge-gray">${a.method}</span></td>
+      <td>${a.attack_type ? `<span class="badge badge-blue">${a.attack_type}</span>` : '<span class="badge badge-gray">?</span>'}</td>
+      <td>${sevBadge(a.severity)}</td>
+      <td>${fwBadge(a.firewall, a.blocked)}</td>
+      <td>
+        <button class="btn" onclick="showDetail(${a.id})">View</button>
+        <button class="btn btn-blue" onclick="analyzeOne(${a.id})">AI</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function showDetail(id) {
+  const r = await fetch(`/internal/attacks/${id}`);
+  const a = await r.json();
+  let headers = {};
+  try { headers = JSON.parse(a.headers||'{}'); } catch{}
+
+  document.getElementById('modal-content').innerHTML = `
+    <div class="detail-row"><span class="detail-key">IP</span><span class="detail-val">${a.ip}</span></div>
+    <div class="detail-row"><span class="detail-key">Location</span><span class="detail-val">${a.city}, ${a.country} — ${a.isp}</span></div>
+    <div class="detail-row"><span class="detail-key">Proxy/VPN</span><span class="detail-val">${a.is_proxy?'🔴 Yes':'✅ No'} | Hosting/Tor: ${a.is_tor?'🔴 Yes':'✅ No'}</span></div>
+    <div class="detail-row"><span class="detail-key">Time</span><span class="detail-val">${a.timestamp}</span></div>
+    <div class="detail-row"><span class="detail-key">Method/Path</span><span class="detail-val">${a.method} ${a.path}</span></div>
+    <div class="detail-row"><span class="detail-key">Query</span><span class="detail-val">${a.query_string||'—'}</span></div>
+    <div class="detail-row"><span class="detail-key">User-Agent</span><span class="detail-val">${a.user_agent||'—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Attack type</span><span class="detail-val">${sevBadge(a.severity)} ${a.attack_type||'Not analyzed'}</span></div>
+    ${a.payload ? `<div class="detail-row"><span class="detail-key">Payload</span></div><pre>${escapeHtml(a.payload.substring(0,800))}</pre>` : ''}
+    ${a.ai_summary ? `<div class="ai-box"><h4>🤖 AI Analysis</h4><p>${a.ai_summary}</p></div>` : ''}
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-blue" onclick="analyzeOne(${a.id})">⚡ Run AI Analysis</button>
+      <button class="btn" style="border-color:var(--red);color:var(--red)" onclick="blockIP('${a.ip}')">🚫 Block IP</button>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function analyzeOne(id) {
+  const btn = event.target;
+  btn.textContent = '...';
+  btn.disabled = true;
+  await fetch(`/internal/analyze/${id}`, {method:'POST'});
+  btn.textContent = '✅';
+  setTimeout(()=>{ loadAttacks(); loadStats(); btn.textContent='AI'; btn.disabled=false; }, 500);
+}
+
+async function analyzeBatch() {
+  const btn = event.target;
+  btn.textContent = 'Analyzing...';
+  btn.disabled = true;
+  await fetch('/internal/analyze-batch', {method:'POST'});
+  btn.textContent = '⚡ AI Analyze Latest';
+  btn.disabled = false;
+  loadAttacks();
+  loadStats();
+}
+
+async function toggleFirewall(on) {
+  await fetch('/internal/firewall/toggle', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({enabled: on})
+  });
+  const lbl = document.getElementById('fw-label');
+  if (on) { lbl.textContent='🟢 Firewall ON'; lbl.className='fw-status fw-on'; }
+  else { lbl.textContent='🔴 Firewall OFF'; lbl.className='fw-status fw-off'; }
+}
+
+async function blockIP(ip) {
+  await fetch('/internal/firewall/block', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ip})
+  });
+  alert(`IP ${ip} added to blocklist`);
+}
+
+async function loadFirewallStatus() {
+  const r = await fetch('/internal/firewall/status');
+  const d = await r.json();
+  document.getElementById('fw-switch').checked = d.enabled;
+  const lbl = document.getElementById('fw-label');
+  if (d.enabled) { lbl.textContent='🟢 Firewall ON'; lbl.className='fw-status fw-on'; }
+  else { lbl.textContent='🔴 Firewall OFF'; lbl.className='fw-status fw-off'; }
+}
+
+async function refresh() { await Promise.all([loadStats(), loadAttacks()]); }
+
+// Close modal on outside click
+document.getElementById('modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+
+// Init + poll every 10s
+loadFirewallStatus();
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
