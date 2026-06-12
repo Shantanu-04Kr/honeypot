@@ -39,7 +39,7 @@ async def analyze_with_claude(prompt: str) -> dict:
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-4-5",
                 "max_tokens": 600,
                 "messages": [{"role": "user", "content": prompt}],
             }
@@ -59,7 +59,7 @@ async def analyze_with_openai(prompt: str) -> dict:
                 "Content-Type": "application/json",
             },
             json={
-                "model": "gpt-4o-mini",
+                "model": "gpt-4o-mini-2024-07-18",
                 "max_tokens": 600,
                 "response_format": {"type": "json_object"},
                 "messages": [{"role": "user", "content": prompt}],
