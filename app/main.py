@@ -26,7 +26,8 @@ async def honeypot_middleware(request: Request, call_next):
 
     # skip logging for dashboard, internal API, and static files
     if path in ("/", "/honeypot-dashboard") or path.startswith("/internal") or path.startswith("/static"):
-        return await call_next(request)
+    return await call_next(request)
+        
 
     body = await request.body()
 
