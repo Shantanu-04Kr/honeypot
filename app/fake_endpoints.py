@@ -128,70 +128,7 @@ async def fake_shell(request: Request, cmd: str = ""):
     output = fake_outputs.get(cmd.strip(), f"bash: {cmd}: command not found")
     return JSONResponse({"output": output, "exit_code": 0})
 
-@router.get("/phpmyadmin")
-@router.get("/phpmyadmin/index.php")
-async def fake_phpmyadmin():
-    return HTMLResponse("""<!DOCTYPE html>
-<html><head><title>phpMyAdmin</title></head>
-<body><h1>phpMyAdmin 4.0.1</h1>
-<form method='POST'>
-Username: <input name='pma_username'><br>
-Password: <input type='password' name='pma_password'><br>
-<input type='submit' value='Login'>
-</form></body></html>""")
 
-@router.get("/xmlrpc.php")
-async def fake_xmlrpc():
-    return HTMLResponse("""<?xml version="1.0"?>
-<methodResponse><params><param>
-<value>Wordpress XMLRPC enabled</value>
-</param></params></methodResponse>""", media_type="text/xml")
-
-@router.get("/config.php")
-@router.get("/configuration.php")
-@router.get("/config.inc.php")
-async def fake_config_php():
-    return HTMLResponse("""<?php
-$db_host = 'localhost';
-$db_user = 'root';
-$db_pass = 'toor';
-$db_name = 'wordpress';
-$secret_key = 'a8f5f167f44f4964e6c998dee827110c';
-?>""", media_type="text/plain")
-
-@router.get("/server-status")
-async def fake_server_status():
-    return HTMLResponse("""<html><body>
-<h1>Apache Server Status for localhost</h1>
-<b>Server Version:</b> Apache/2.2.14 (Ubuntu) PHP/5.3.2<br>
-<b>Server uptime:</b> 47 days 3 hours 12 minutes<br>
-<b>Total requests:</b> 1,847,293
-</body></html>""")
-
-@router.get("/telescope")
-@router.get("/laravel-telescope")
-async def fake_telescope():
-    return JSONResponse({"laravel": "8.0", "telescope": "enabled", "debug": True, "env": "production"})
-
-@router.get("/actuator")
-@router.get("/actuator/env")
-@router.get("/actuator/health")
-async def fake_actuator():
-    return JSONResponse({
-        "status": "UP",
-        "spring-boot": "2.3.1",
-        "db": {"status": "UP", "database": "MySQL", "hello": 1},
-        "env": {"activeProfiles": ["production"], "SECRET_KEY": "spring-insecure-honeypot"}
-    })
-
-@router.get("/solr/admin/cores")
-async def fake_solr():
-    return JSONResponse({"responseHeader": {"status": 0}, "initFailures": {}, "status": {"collection1": {"name": "collection1"}}})
-
-@router.get("/jenkins")
-@router.get("/jenkins/api/json")
-async def fake_jenkins():
-    return JSONResponse({"mode": "NORMAL", "nodeDescription": "Jenkins master", "version": "2.235.1", "views": []})
 # ── Catch-all for other probing ───────────────────────────────────────────────
 
 @router.get("/{full_path:path}")

@@ -22,11 +22,7 @@ async def honeypot_middleware(request: Request, call_next):
     start = time.time()
     path = request.url.path
     response = await call_next(request)
-    # Pretend to be old vulnerable software
-    response.headers["Server"] = "Apache/2.2.14 (Ubuntu)"
-    response.headers["X-Powered-By"] = "PHP/5.3.2"
-    response.headers["X-AspNet-Version"] = "2.0.50727"
-    return response
+    
 
     # skip logging for dashboard, internal API, and static files
     if path in ("/", "/honeypot-dashboard") or path.startswith("/internal") or path.startswith("/static"):
