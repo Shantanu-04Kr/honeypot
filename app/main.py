@@ -21,9 +21,6 @@ app.include_router(api_router, prefix="/internal")
 async def honeypot_middleware(request: Request, call_next):
     start = time.time()
     path = request.url.path
-
-@app.middleware("http")
-async def fake_server_headers(request: Request, call_next):
     response = await call_next(request)
     # Pretend to be old vulnerable software
     response.headers["Server"] = "Apache/2.2.14 (Ubuntu)"
