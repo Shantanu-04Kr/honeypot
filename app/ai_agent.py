@@ -28,7 +28,6 @@ Respond ONLY with a valid JSON object, no markdown, no explanation:
   "summary": "<2 sentence plain English summary>"
 }}"""
 
-
 async def analyze_with_claude(prompt: str) -> dict:
     async with httpx.AsyncClient(timeout=20.0) as client:
         r = await client.post(
@@ -39,15 +38,18 @@ async def analyze_with_claude(prompt: str) -> dict:
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-haiku-4-5-20251001",
+                "model": "claude-haiku-4-5",
                 "max_tokens": 600,
                 "messages": [{"role": "user", "content": prompt}],
             }
         )
+        print(f"[AI] Claude status: {r.status_code}")
+        print(f"[AI] Claude response: {r.text[:300]}")
         r.raise_for_status()
         data = r.json()
         text = data["content"][0]["text"].strip()
         return json.loads(text)
+
 
 
 async def analyze_with_openai(prompt: str) -> dict:
