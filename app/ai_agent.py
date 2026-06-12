@@ -39,7 +39,7 @@ async def analyze_with_claude(prompt: str) -> dict:
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-5",
+                "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 600,
                 "messages": [{"role": "user", "content": prompt}],
             }
