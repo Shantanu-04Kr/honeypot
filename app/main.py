@@ -21,25 +21,21 @@ app.include_router(api_router, prefix="/internal")
 async def honeypot_middleware(request: Request, call_next):
     start = time.time()
     path = request.url.path
-    response = await call_next(request)
-    
 
-    # skip logging for dashboard, internal API, and static files
+    # skip logging for homepage, dashboard, internal API, and static files
     if path in ("/", "/honeypot-dashboard") or path.startswith("/internal") or path.startswith("/static"):
         return await call_next(request)
-        
 
+    # read body BEFORE calling next
     body = await request.body()
 
+    # firewall check
     fw_result = await firewall_check(request)
     if fw_result["blocked"]:
         await log_request(request, body, blocked=True, block_reason=fw_result["reason"])
-        return Response(
-            content="403 Forbidden",
-            status_code=403,
-            media_type="text/plain"
-        )
+        return Response(content="403 Forbidden", status_code=403, media_type="text/plain")
 
+    # let request through
     response = await call_next(request)
     duration_ms = round((time.time() - start) * 1000, 2)
     await log_request(request, body, blocked=False, duration_ms=duration_ms)
@@ -49,6 +45,7 @@ async def honeypot_middleware(request: Request, call_next):
 @app.get("/", response_class=HTMLResponse)
 async def homepage(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.get("/honeypot-dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
