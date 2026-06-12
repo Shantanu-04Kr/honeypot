@@ -1,10 +1,9 @@
 import os
 import json
 import httpx
-from datetime import datetime, timezone
 
+GROQ_KEY = os.getenv("GROQ_API_KEY", "")
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 
 ANALYSIS_PROMPT = """You are a cybersecurity analyst. Analyze this HTTP request captured by a honeypot server.
 
@@ -28,63 +27,18 @@ Respond ONLY with a valid JSON object, no markdown, no explanation:
   "summary": "<2 sentence plain English summary>"
 }}"""
 
-async def analyze_with_claude(prompt: str) -> dict:
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        r = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": "claude-haiku-4-5",
-                "max_tokens": 600,
-                "messages": [{"role": "user", "content": prompt}],
-            }
-        )
-        print(f"[AI] Claude status: {r.status_code}")
-        print(f"[AI] Claude response: {r.text[:300]}")
-        r.raise_for_status()
-        data = r.json()
-        text = data["content"][0]["text"].strip()
-        return json.loads(text)
 
-
-
-async def analyze_with_openai(prompt: str) -> dict:
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        r = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENAI_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "gpt-4o-mini-2024-07-18",
-                "max_tokens": 600,
-                "response_format": {"type": "json_object"},
-                "messages": [{"role": "user", "content": prompt}],
-            }
-        )
-        r.raise_for_status()
-        data = r.json()
-        return json.loads(data["choices"][0]["message"]["content"])
-
-
-async def analyze_attack(attack_row: dict) -> dict:
-    """Analyze a single attack log entry. Tries Claude first, falls back to OpenAI."""
+def build_prompt(attack_row: dict) -> str:
     headers_preview = {}
     try:
         h = json.loads(attack_row.get("headers", "{}"))
-        # Only show a few key headers to keep prompt short
         for k in ["user-agent", "content-type", "accept", "referer", "origin"]:
             if k in h:
                 headers_preview[k] = h[k]
     except Exception:
         pass
 
-    prompt = ANALYSIS_PROMPT.format(
+    return ANALYSIS_PROMPT.format(
         ip=attack_row.get("ip", ""),
         country=attack_row.get("country", "Unknown"),
         city=attack_row.get("city", "Unknown"),
@@ -99,21 +53,46 @@ async def analyze_attack(attack_row: dict) -> dict:
         headers=json.dumps(headers_preview),
     )
 
+
+async def analyze_with_groq(prompt: str) -> dict:
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "llama-3.1-8b-instant",
+                "max_tokens": 600,
+                "temperature": 0,
+                "messages": [
+                    {"role": "system", "content": "You are a cybersecurity analyst. Always respond with valid JSON only. No markdown, no explanation, just the JSON object."},
+                    {"role": "user", "content": prompt}
+                ],
+            }
+        )
+        r.raise_for_status()
+        data = r.json()
+        text = data["choices"][0]["message"]["content"].strip()
+        # Strip markdown code blocks if model adds them
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        return json.loads(text.strip())
+
+
+async def analyze_attack(attack_row: dict) -> dict:
+    prompt = build_prompt(attack_row)
     result = None
 
-    # Try Claude first
-    if ANTHROPIC_KEY:
+    if GROQ_KEY:
         try:
-            result = await analyze_with_claude(prompt)
+            result = await analyze_with_groq(prompt)
+            print(f"[AI] Groq analysis OK: {result.get('attack_type')}")
         except Exception as e:
-            print(f"[AI] Claude failed: {e}")
-
-    # Fall back to OpenAI
-    if result is None and OPENAI_KEY:
-        try:
-            result = await analyze_with_openai(prompt)
-        except Exception as e:
-            print(f"[AI] OpenAI failed: {e}")
+            print(f"[AI] Groq failed: {e}")
 
     if result is None:
         result = {
