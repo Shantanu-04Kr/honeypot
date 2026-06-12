@@ -23,7 +23,7 @@ async def honeypot_middleware(request: Request, call_next):
     path = request.url.path
 
     # skip logging for dashboard, internal API, and static files
-    if path == "/" or path.startswith("/internal") or path.startswith("/static"):
+    if path in ("/", "/honeypot-dashboard") or path.startswith("/internal") or path.startswith("/static"):
         return await call_next(request)
 
     body = await request.body()
@@ -44,6 +44,10 @@ async def honeypot_middleware(request: Request, call_next):
 
 
 @app.get("/", response_class=HTMLResponse)
+async def homepage(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/honeypot-dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
